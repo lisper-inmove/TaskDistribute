@@ -1,0 +1,15 @@
+#+SETUPFILE: ~/.emacs.d/org-templates/template.org
+
+* 注册与下发任务
+#+begin_verse
+需要向任务管理器注册,注册内容有两个主要的链接
+a). 任务状态查询
+b). 任务已成功回调，要求幂等
+如: 用户支付完成之后，向任务管理器下发任务。任务管理器则需要轮询a接口去查询是否已完成。当已完成(包括成功/失败)，再调用b接口
+#+end_verse
+* 任务分配
+11
+* 激活env
+#+begin_src shell
+  conda activate TaskDistribute
+#+end_src

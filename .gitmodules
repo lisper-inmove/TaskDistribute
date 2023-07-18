@@ -1,0 +1,9 @@
+[submodule "src/msgq"]
+	path = src/msgq
+	url = git@github.com:lisper-inmove/MessageQueue.git
+[submodule "src/submodules/utils"]
+	path = src/submodules/utils
+	url = git@github.com:lisper-inmove/PythonUtils.git
+[submodule "src/proto"]
+	path = src/proto
+	url = git@github.com:lisper-inmove/TaskDistributeProtobuf.git

@@ -1,0 +1,30 @@
+import proto.entities.task_pb2 as task_pb
+from manager.base_manager import BaseManager
+from dao.task_template_dao import TaskTemplateDA
+
+
+class TaskTemplateManager(BaseManager):
+
+    @property
+    def dao(self):
+        if self._dao is None:
+            self._dao = TaskTemplateDA()
+        return self._dao
+
+    def create_task_template(self, request):
+        obj = self.create_obj(task_pb.TaskTemplate)
+        obj.name = request.name
+        obj.preposeStatusQueryApi = request.preposeStatusQueryApi
+        obj.taskFinishSetApi = request.taskFinishSetApi
+        return obj
+
+    async def list_task_template(self, request):
+        async for template in self.dao.list_task_template():
+            yield template
+
+    async def add_task_template(self, template):
+        await self.dao.create_task_template(template)
+
+    async def update_task_template(self, template):
+        self.update_obj(template)
+        await self.dao.update_task_template(template)
