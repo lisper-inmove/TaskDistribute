@@ -1,13 +1,17 @@
 import os
 import re
-import inspect
+import time
 import importlib.util
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from pathlib import Path
 
 from submodules.utils.logger import Logger
 from submodules.utils.sys_env import SysEnv
+from errors import Error
+from unify_response import UnifyResponse
+
 logger = Logger()
 
 
@@ -44,4 +48,21 @@ class HandlerHelper:
 
 
 app = FastAPI()
+
+
+@app.middleware("http")
+async def cache_error(request: Request, call_next):
+    start_time = time.time()
+    try:
+        response = await call_next(request)
+    except Error as e:
+        result = UnifyResponse.R(rs=(e.code, e.msg))
+        return JSONResponse(result)
+    except Exception as e:
+        logger.error(e)
+        raise e
+    process_time = time.time() - start_time
+    logger.info(f"接口处理耗时: {process_time}")
+    return response
+
 HandlerHelper(app, "routers").load_handler()

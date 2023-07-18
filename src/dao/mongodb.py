@@ -55,6 +55,9 @@ else:
     class MongoDBHelper(MongoDBSingleHelper):
         pass
 
+async def insert_one(self, json_obj):
+    return await self._coll.insert_one(json_obj)
+
 async def update_one(self, matcher, json_obj, upsert=False):
     return await self._coll.update_one(matcher, {"$set": json_obj}, upsert=upsert)
 
@@ -115,7 +118,7 @@ def pkg_matcher(self, matcher):
     return result
 
 
-# setattr(MongoDBHelper, "__init__", my_init)
+setattr(MongoDBHelper, "insert_one", insert_one)
 setattr(MongoDBHelper, "update_one", update_one)
 setattr(MongoDBHelper, "find_one", find_one)
 setattr(MongoDBHelper, "count", count)

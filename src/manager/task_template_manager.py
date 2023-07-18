@@ -22,8 +22,8 @@ class TaskTemplateManager(BaseManager):
         async for template in self.dao.list_task_template():
             yield template
 
-    async def add_task_template(self, template):
-        await self.dao.create_task_template(template)
+    async def save_task_template(self, template):
+        await self.dao.save_task_template(template)
 
     async def update_task_template(self, template):
         self.update_obj(template)
