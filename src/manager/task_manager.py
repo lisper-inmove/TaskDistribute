@@ -29,6 +29,9 @@ class TaskManager(BaseManager):
     async def add_task(self, task):
         await self.dao.create_task(task)
 
+    async def get_task_by_id(self, id):
+        return await self.dao.get_task_by_id(id)
+
     async def update_task(self, task):
         self.update_obj(task)
         await self.dao.update_task(task)

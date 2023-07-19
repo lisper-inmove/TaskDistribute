@@ -18,6 +18,9 @@ export MONGODB_SERVER_ADDRESS=127.0.0.1
 export MONGODB_PORT=27018
 # 服务启动环境
 export RUNTIME_ENVIRONMENT=test
+export CONFIG_FILE=src/configs/config.ini
+export REDIS_HOST=127.0.0.1
+export REDIS_PORT=6379
 
 function get_available_port() {
     port=6003
