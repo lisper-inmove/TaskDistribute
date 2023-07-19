@@ -11,20 +11,24 @@ class TaskManager(BaseManager):
             self._dao = TaskDA()
         return self._dao
 
-    def create_task(self, request):
+    def create_task(self, request, template):
         obj = self.create_obj(task_pb.Task)
         obj.uniqueId = request.uniqueId
         obj.params = request.params
-        obj.templateId = request.templateId
+        obj.template.CopyFrom(template)
         return obj
 
-    async def list_task(self, request):
-        async for template in self.dao.list_task():
-            yield template
+    async def list_task(self):
+        async for task in self.dao.list_task():
+            yield task
+
+    async def list_created_task(self):
+        async for task in self.dao.list_created_task():
+            yield task
 
     async def add_task(self, task):
         await self.dao.create_task(task)
 
     async def update_task(self, task):
         self.update_obj(task)
-        await self.dao.update_task_template(task)
+        await self.dao.update_task(task)

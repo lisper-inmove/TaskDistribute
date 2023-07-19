@@ -18,6 +18,9 @@ class TaskTemplateManager(BaseManager):
         obj.taskFinishSetApi = request.taskFinishSetApi
         return obj
 
+    async def get_task_template_by_id(self, id):
+        return await self.dao.get_task_template_by_id(id)
+
     async def list_task_template(self, request):
         async for template in self.dao.list_task_template():
             yield template

@@ -36,6 +36,12 @@ class TaskDA(MongoDBHelper, Base):
             task = self.PH.to_obj(task, task_pb.Task)
             yield task
 
+    async def list_created_task(self):
+        matcher = {"status": "CREATED"}
+        async for task in self.find_many(matcher):
+            task = self.PH.to_obj(task, task_pb.Task)
+            yield task
+
     async def update_task(self, task):
         matcher = {"id": task.id}
         json_data = self.PH.to_dict(task)

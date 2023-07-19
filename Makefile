@@ -1,5 +1,7 @@
 dev:
 	export PYTHONPATH=`pwd`/src && source bin/util.sh && APPROOT=`pwd`/src uvicorn src.app:app --reload
+dev-consumer:
+	export PYTHONPATH=`pwd`/src && source bin/util.sh && APPROOT=`pwd`/src python src/scheduler/main.py
 
 api:
 	cd src/proto && make api-python
