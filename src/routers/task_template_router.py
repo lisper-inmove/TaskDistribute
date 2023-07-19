@@ -25,3 +25,17 @@ async def create_task_template(
 @router.post("/delete")
 async def delete_task_template(template: api_task_pb.DeleteTaskTemplateRequest):
     return template
+
+
+@router.post("/list")
+async def list_task_template(request: api_task_pb.ListTaskTemplateRequest):
+    manager = TaskTemplateManager()
+    resp = api_task_pb.ListTaskTemplateResponse()
+    async for template in manager.list_task_template(request):
+        resp.taskList.append(
+            api_task_pb.TaskTemplateCommonResponse(
+                id=template.id,
+                name=template.name
+            )
+        )
+    return resp

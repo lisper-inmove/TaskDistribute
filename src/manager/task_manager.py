@@ -13,9 +13,9 @@ class TaskManager(BaseManager):
 
     def create_task(self, request):
         obj = self.create_obj(task_pb.Task)
-        obj.name = request.name
-        obj.preposeStatusQueryApi = request.preposeStatusQueryApi
-        obj.taskFinishSetApi = request.taskFinishSetApi
+        obj.uniqueId = request.uniqueId
+        obj.params = request.params
+        obj.templateId = request.templateId
         return obj
 
     async def list_task(self, request):

@@ -79,11 +79,11 @@ async def delete_one(self, matcher):
     return await self._coll.delete_one(matcher)
 
 
-@FuncTimeExpend(prefix="批量查找>>>>>: ")
+@FuncTimeExpend(prefix="Find Many: ")
 async def find_many(self, matcher, sortby=None, page=None, size=None):
     # 默认为按照更新时间倒序
     if sortby is None:
-        sortby = [("update_time_sec", -1)]
+        sortby = [("updateTime", -1)]
     if page is None:
         page = 1
     if size is None:
@@ -91,7 +91,7 @@ async def find_many(self, matcher, sortby=None, page=None, size=None):
     page = int(page)
     size = int(size)
     skip = (page - 1) * size
-    logger.info(f">>>> find_many: {matcher} -> sortby: {sortby}, skip: {skip}")
+    logger.info(f"Find Many: {matcher} -> sortby: {sortby}, skip: {skip} size: {size}")
     async for result in self._coll.find(matcher).sort(sortby).skip(skip).limit(size):
         yield result
 

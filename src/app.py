@@ -62,7 +62,7 @@ async def cache_error(request: Request, call_next):
         logger.error(e)
         raise e
     process_time = time.time() - start_time
-    logger.info(f"接口处理耗时: {process_time}")
+    logger.info(f"Api procesTime: {request.url} {process_time}")
     return response
 
 HandlerHelper(app, "routers").load_handler()
