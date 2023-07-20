@@ -18,9 +18,12 @@ export MONGODB_SERVER_ADDRESS=127.0.0.1
 export MONGODB_PORT=27018
 # 服务启动环境
 export RUNTIME_ENVIRONMENT=test
-export CONFIG_FILE=src/configs/config.ini
+
+export MQ_TYPE=KAFKA
 export REDIS_HOST=127.0.0.1
 export REDIS_PORT=6379
+export KAFKA_HOST=127.0.0.1
+export KAFKA_PORT=9292
 
 function get_available_port() {
     port=6003

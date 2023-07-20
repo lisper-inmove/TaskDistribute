@@ -32,13 +32,14 @@ class Executor:
         manager = TaskTemplateManager()
         taskTemplates = manager.list_task_template()
         async for template in taskTemplates:
-            config = MsgConfig(MsgConfig.REDIS)
+            if self.consumers.get(template.id):
+                continue
+            config = MsgConfig(SysEnv.get("MQ_TYPE"))
             config.isAsync = True
-            config.host = SysEnv.get("REDIS_HOST")
-            config.port = int(SysEnv.get("REDIS_PORT"))
-            config.stream_name = template.id
-            config.group_name = f"{template.id}-group"
-            config.consumer_name = f"{template.id}-consumer"
+            config.streamName = template.id
+            config.topic = template.id
+            config.groupName = f"{template.id}-group"
+            config.consumerName = f"{template.id}-consumer"
             logger.info(f"Load TaskTemplate: {template.id} {template.name}")
             self.consumers.update({
                 template.id: Consumer().get_consumer(config)

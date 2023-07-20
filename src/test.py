@@ -2,6 +2,8 @@ import asyncio
 import aiohttp
 import random
 
+from msgq.msg_config import MsgConfig
+
 
 async def test():
     async with aiohttp.ClientSession() as session:
@@ -16,5 +18,25 @@ async def test():
             print(await response.json())
 
 
+async def kafka_producer_test():
+
+    from msgq import Producer
+    from msgq import Consumer
+
+    config = MsgConfig(MsgConfig.KAFKA)
+    config.topic = "my_topic_test001"
+    config.groupName = "my_group_name"
+
+    p = Producer().get_producer(config)
+    await p.start()
+    await p.produce(b"hello")
+
+    c = Consumer().get_consumer(config)
+    await c.start()
+    async for msg in c.consume():
+        print(msg)
+
+
 if __name__ == '__main__':
-    asyncio.run(test())
+    # asyncio.run(test())
+    asyncio.run(kafka_producer_test())
