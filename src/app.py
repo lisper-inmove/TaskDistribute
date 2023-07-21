@@ -15,28 +15,28 @@ from unify_response import UnifyResponse
 logger = Logger()
 
 
-class HandlerHelper:
+class RouterHelper:
 
     pattern = re.compile('(?!^)([A-Z]+)')
 
     def __init__(self, app, directory):
         self.directory = directory
-        self.handlers = dict()
+        self.routers = dict()
         self.app = app
 
-    def load_handler(self, path=None):
-        """加载所有handler."""
+    def load_router(self, path=None):
+        """加载所有router."""
         if path is None:
             root_dir = SysEnv.get(SysEnv.APPROOT)
             path = os.path.join(root_dir, self.directory)
         for root, dirs, files in os.walk(path):
             for directory in dirs:
-                self.load_handler(os.path.join(root, directory))
+                self.load_router(os.path.join(root, directory))
             for _f in files:
-                self.load_handler_from_file(os.path.join(root, _f))
+                self.load_router_from_file(os.path.join(root, _f))
 
-    def load_handler_from_file(self, filepath):
-        """加载某一个handler."""
+    def load_router_from_file(self, filepath):
+        """加载某一个router."""
         if not filepath.endswith("py"):
             return
         filename = Path(filepath).name
@@ -62,7 +62,7 @@ async def cache_error(request: Request, call_next):
         logger.error(e)
         raise e
     process_time = time.time() - start_time
-    logger.info(f"Api procesTime: {request.url} {process_time}")
+    logger.info(f"Api processTime: {request.url} {process_time}")
     return response
 
-HandlerHelper(app, "routers").load_handler()
+RouterHelper(app, "routers").load_router()
