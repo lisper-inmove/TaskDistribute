@@ -4,9 +4,10 @@ import proto.api.api_task_p2p as api_task_pb
 from manager.task_manager import TaskManager
 from manager.task_template_manager import TaskTemplateManager
 from msgq.producer import Producer
-from msgq.msg_config import MsgConfig
+from msgq.mq_config import MQConfig
 from submodules.utils.sys_env import SysEnv
 from submodules.utils.logger import Logger
+from unify_response import UnifyResponse
 
 logger = Logger()
 
@@ -23,11 +24,11 @@ async def create_task(
     task = manager.create_task(request, taskTemplate)
     await manager.add_task(task)
     # for test
-    config = MsgConfig(SysEnv.get("MQ_TYPE"))
+    config = MQConfig(SysEnv.get("MQ_TYPE"))
     config.isAsync = True
     config.topic = request.templateId
     producer = Producer().get_producer(config)
     await producer.push({"id": task.id})
     logger.info(f"push message to: {config} {task.id}")
     await producer.cleanup()
-    return request
+    return UnifyResponse.R(request)

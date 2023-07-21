@@ -19,7 +19,7 @@ export MONGODB_PORT=27018
 # 服务启动环境
 export RUNTIME_ENVIRONMENT=test
 
-export MQ_TYPE=PULSAR
+export MQ_TYPE=KAFKA
 export REDIS_HOST=127.0.0.1
 export REDIS_PORT=6379
 export KAFKA_HOST=127.0.0.1

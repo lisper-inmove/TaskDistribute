@@ -10,7 +10,7 @@ from manager.task_template_manager import TaskTemplateManager
 from submodules.utils.logger import Logger
 from submodules.utils.sys_env import SysEnv
 from msgq.consumer import Consumer
-from msgq.msg_config import MsgConfig
+from msgq.mq_config import MQConfig
 
 logger = Logger()
 
@@ -37,7 +37,7 @@ class Executor:
         async for template in taskTemplates:
             if self.consumers.get(template.id):
                 continue
-            config = MsgConfig(SysEnv.get("MQ_TYPE"))
+            config = MQConfig(SysEnv.get("MQ_TYPE"))
             config.isAsync = True
             config.topic = template.id
             config.groupName = f"{template.id}-group"
@@ -63,6 +63,8 @@ class Executor:
             for _, consumer in self.consumers.items():
                 await asyncio.sleep(0.1)
                 async for message in consumer.pull(10):
+                    if not message:
+                        continue
                     task = await self.parse_message(consumer, message)
                     flag = await self.__process_task(task)
                     if flag:
@@ -83,27 +85,28 @@ class Executor:
         return True
 
     async def parse_message(self, consumer, message):
-        if consumer.config.type == MsgConfig.KAFKA:
+        if consumer.config.type == MQConfig.KAFKA:
             return await self.__parse_message_with_kafka(message)
-        elif consumer.config.type == MsgConfig.REDIS:
+        elif consumer.config.type == MQConfig.REDIS:
             return await self.__parse_message_with_redis(message)
-        elif consumer.config.type == MsgConfig.PULSAR:
+        elif consumer.config.type == MQConfig.PULSAR:
             return await self.__parse_message_with_pulsar(message)
 
     async def __parse_message_with_redis(self, message):
+        message = message.value
         taskId = message[1].get(b'id').decode()
         manager = TaskManager()
         task = await manager.get_task_by_id(taskId)
         return task
 
     async def __parse_message_with_kafka(self, message):
-        message = message.value
+        message = message.value.value
         message = json.loads(message.decode())
         manager = TaskManager()
         return await manager.get_task_by_id(message.get("id"))
 
     async def __parse_message_with_pulsar(self, message):
-        message = message.value()
+        message = message.value.value()
         message = json.loads(message.decode())
         manager = TaskManager()
         return await manager.get_task_by_id(message.get("id"))
@@ -121,7 +124,7 @@ class Executor:
                     result = await response.json()
                     logger.info(f"Task prepose status: {result}")
                     if result.get("code") == 0 and result.get("msg") == "成功":
-                        return True
+                        return False
             except TimeoutError as ex:
                 return False
         return False

@@ -2,7 +2,7 @@ import asyncio
 import aiohttp
 import random
 
-from msgq.msg_config import MsgConfig
+from msgq.mq_config import MQConfig
 
 
 async def test():
@@ -23,7 +23,7 @@ async def kafka_producer_test():
     from msgq import Producer
     from msgq import Consumer
 
-    config = MsgConfig(MsgConfig.KAFKA)
+    config = MQConfig(MsgConfig.KAFKA)
     config.topic = "ca0465b0-26ea-4312-b12b-22133c782a37"
     config.groupName = "my_group_name"
 
