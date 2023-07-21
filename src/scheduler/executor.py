@@ -17,16 +17,19 @@ logger = Logger()
 
 class Executor:
 
+    SIGUSR1 = 1 << 0
+
     def __init__(self):
         self.consumers = {}
         self.load_task_templates_time = 0
-        self.signum = None
+        self.signum = self.SIGUSR1
 
     def signal_handler(self, signum, frame):
-        self.signum = signum
+        if signum == signal.SIGUSR1:
+            self.signum |= self.SIGUSR1
 
     async def load_task_templates_handler(self):
-        if self.signum != signal.SIGUSR1:
+        if not (self.signum & self.SIGUSR1):
             return
         self.load_task_templates_time = time.time()
         manager = TaskTemplateManager()
@@ -36,7 +39,6 @@ class Executor:
                 continue
             config = MsgConfig(SysEnv.get("MQ_TYPE"))
             config.isAsync = True
-            config.streamName = template.id
             config.topic = template.id
             config.groupName = f"{template.id}-group"
             config.consumerName = f"{template.id}-consumer"
@@ -44,7 +46,7 @@ class Executor:
             self.consumers.update({
                 template.id: Consumer().get_consumer(config)
             })
-        self.signum = None
+        self.signum &= ~self.SIGUSR1
 
     async def run(self):
         await self.load_from_db()
@@ -61,30 +63,50 @@ class Executor:
             for _, consumer in self.consumers.items():
                 await asyncio.sleep(0.1)
                 async for message in consumer.pull(10):
-                    task = await self.parse_message(message)
-                    await self.__process_task(task)
+                    task = await self.parse_message(consumer, message)
+                    flag = await self.__process_task(task)
+                    if flag:
+                        await consumer.ack(message)
 
     async def __process_task(self, task):
         taskManager = TaskManager()
         flag = await self.check_prepose_status(task)
         logger.info(f"Check task {task.id} prepose status: {flag}")
         if not flag:
-            return
+            return False
         result = await self.set_task_finished(task)
         if not result:
-            return result
+            return False
         task.status = task_pb.Task.FINISHED
         await taskManager.update_task(task)
         logger.info(f"Set task {task.id} finished: {result}")
+        return True
 
-    async def parse_message(self, message):
-        return await self.__parse_message_with_redis_msg(message)
+    async def parse_message(self, consumer, message):
+        if consumer.config.type == MsgConfig.KAFKA:
+            return await self.__parse_message_with_kafka(message)
+        elif consumer.config.type == MsgConfig.REDIS:
+            return await self.__parse_message_with_redis(message)
+        elif consumer.config.type == MsgConfig.PULSAR:
+            return await self.__parse_message_with_pulsar(message)
 
-    async def __parse_message_with_redis_msg(self, message):
+    async def __parse_message_with_redis(self, message):
         taskId = message[1].get(b'id').decode()
         manager = TaskManager()
         task = await manager.get_task_by_id(taskId)
         return task
+
+    async def __parse_message_with_kafka(self, message):
+        message = message.value
+        message = json.loads(message.decode())
+        manager = TaskManager()
+        return await manager.get_task_by_id(message.get("id"))
+
+    async def __parse_message_with_pulsar(self, message):
+        message = message.value()
+        message = json.loads(message.decode())
+        manager = TaskManager()
+        return await manager.get_task_by_id(message.get("id"))
 
     async def check_prepose_status(self, task):
         api = task.template.preposeStatusQueryApi
@@ -92,9 +114,9 @@ class Executor:
         async with aiohttp.ClientSession() as session:
             try:
                 async with session.post(
-                        api,
-                        json=params,
-                        timeout=30
+                    api,
+                    json=params,
+                    timeout=30
                 ) as response:
                     result = await response.json()
                     logger.info(f"Task prepose status: {result}")
@@ -110,9 +132,9 @@ class Executor:
         async with aiohttp.ClientSession() as session:
             try:
                 async with session.post(
-                        api,
-                        json=params,
-                        timeout=30
+                    api,
+                    json=params,
+                    timeout=30
                 ) as response:
                     result = await response.json()
                     logger.info(f"Set task finish: {result}")

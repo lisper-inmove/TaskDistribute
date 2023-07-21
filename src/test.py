@@ -24,16 +24,14 @@ async def kafka_producer_test():
     from msgq import Consumer
 
     config = MsgConfig(MsgConfig.KAFKA)
-    config.topic = "my_topic_test001"
+    config.topic = "ca0465b0-26ea-4312-b12b-22133c782a37"
     config.groupName = "my_group_name"
 
     p = Producer().get_producer(config)
-    await p.start()
-    await p.produce(b"hello")
+    await p.push({"test": "hello"})
 
     c = Consumer().get_consumer(config)
-    await c.start()
-    async for msg in c.consume():
+    async for msg in c.pull(10):
         print(msg)
 
 
