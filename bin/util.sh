@@ -28,6 +28,9 @@ export PULSAR_HOST=pulsar://127.0.0.1
 export PULSAR_PORT=6650
 export PULSAR_TOPIC_PREFIX=persistent://public/default/
 
+export PYTHONPATH=`pwd`/src
+export APPROOT=`pwd`/src
+
 function get_available_port() {
     port=6003
     while true
