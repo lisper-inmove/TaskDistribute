@@ -84,12 +84,14 @@ class Executor:
 
     async def __process_per_consumer(self, consumer):
         async for message in consumer.pull(10):
+            logger.info(f"{consumer.config.consumerName} process start")
             if not message:
                 continue
             task = await self.parse_message(consumer, message)
             flag = await self.__process_task(task)
             if flag:
                 await consumer.ack(message)
+            logger.info(f"{consumer.config.consumerName} process finish")
 
     async def __process_task(self, task):
         if not task:
