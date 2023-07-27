@@ -19,8 +19,8 @@ class MongoDBReplicaHelper(metaclass=SingletonMetaclass):
         username = SysEnv.get("R_MONGODB_USER_NAME")
         password = SysEnv.get("R_MONGODB_ROOT_PASSWORD")
         replica_set = SysEnv.get("R_MONGODB_REPLICA_SET")
-        min_pool_size = int(SysEnv.get("R_MONGODB_MIN_POOL_SIZE", 8))
-        max_pool_size = int(SysEnv.get("R_MONGODB_MAX_POOL_SIZE", 1024))
+        min_pool_size = int(SysEnv.get("R_MONGODB_MIN_POOL_SIZE", 512))
+        max_pool_size = int(SysEnv.get("R_MONGODB_MAX_POOL_SIZE", 8192))
         replica_set_number = int(SysEnv.get("R_MONGODB_REPLICA_SET_NUMBER", 3))
         self.mongo_client = MongoClient(
             host=host, port=port, username=username, replicaSet=replica_set,

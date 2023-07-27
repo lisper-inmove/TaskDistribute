@@ -9,9 +9,11 @@ entity:
 	cd src/proto && make entity
 
 web-redis:
-	source bin/util.sh && MQ_TYPE=REDIS uvicorn src.app:app --reload
+	# source bin/util.sh && MQ_TYPE=REDIS uvicorn src.app:app --reload
+	source bin/util.sh && MQ_TYPE=REDIS uvicorn src.app:app --workers 128
 web-kafka:
-	source bin/util.sh && MQ_TYPE=KAFKA uvicorn src.app:app --reload
+	# source bin/util.sh && MQ_TYPE=KAFKA uvicorn src.app:app --reload
+	source bin/util.sh && MQ_TYPE=KAFKA uvicorn src.app:app --workers 32
 web-pulsar:
 	source bin/util.sh && MQ_TYPE=PULSAR uvicorn src.app:app --reload
 

@@ -23,10 +23,9 @@ async def create_task(
     taskTemplate = await taskTemplateManager.get_task_template_by_id(request.templateId)
     task = manager.create_task(request, taskTemplate)
     await manager.add_task(task)
-    # for test
     config = MQConfig(SysEnv.get("MQ_TYPE"))
     config.topic = request.templateId
-    producer = Producer().get_producer(config)
+    producer = await Producer().get_producer(config)
     await producer.push({"id": task.id})
     logger.info(f"push message to: {config} {task.id}")
     await producer.cleanup()

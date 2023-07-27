@@ -59,9 +59,8 @@ class Executor:
             config.consumerName = f"{template.id}-consumer-{i}"
             consumer = Consumer().get_consumer(config)
             logger.info(f"Create Consumer {config.topic} {config.groupName} {config.consumerName}")
-            if config.type == MQConfig.REDIS:
-                await consumer.create_group()
             consumers.append(consumer)
+        consumers = await asyncio.gather(*consumers)
         return consumers
 
     async def run(self):
