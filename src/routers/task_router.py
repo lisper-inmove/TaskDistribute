@@ -25,7 +25,6 @@ async def create_task(
     await manager.add_task(task)
     # for test
     config = MQConfig(SysEnv.get("MQ_TYPE"))
-    config.isAsync = True
     config.topic = request.templateId
     producer = Producer().get_producer(config)
     await producer.push({"id": task.id})

@@ -25,8 +25,9 @@ async def Producer():
         await p.push({f"test-{i}-{r}": f"hello-{i}-{r}"})
 
 
-async def Consumer():
+async def Consumer(suffix):
     config = create_config()
+    config.consumerName = f'{config.consumerName}-{suffix}'
     c = mC().get_consumer(config)
     for i in range(0, 30):
         await asyncio.sleep(0.5)
@@ -35,25 +36,12 @@ async def Consumer():
             await c.ack(msg)
 
 
-async def GroupConsumer(suffix):
-    config = create_config()
-    config.consumerName = f"{config.consumerName}-{suffix}"
-    gc = mGC().get_group_consumer(config)
-    await gc.create_group()
-    for i in range(0, 30):
-        await asyncio.sleep(0.5)
-        async for msg in gc.pull(10):
-            print(f"GroupConsume-{suffix} >> {msg.value}")
-            await gc.ack(msg)
-
-
 async def main():
     await gather(
         Producer(),
-        Consumer(),
-        GroupConsumer(1),
-        GroupConsumer(2),
-        GroupConsumer(3),
+        Consumer(1),
+        Consumer(2),
+        Consumer(3),
     )
 
 
