@@ -3,13 +3,15 @@ import argparse
 import signal
 
 from scheduler.executor import Executor
+from scheduler.watcher import Watcher
 
 
-def main():
+async def main():
     executor = Executor()
+    watcher = Watcher(executor)
     signal.signal(signal.SIGUSR1, executor.signal_handler)
-    asyncio.run(
-        executor.run()
+    await asyncio.gather(
+        executor.run(), watcher.start()
     )
 
 
@@ -17,4 +19,4 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    main()
+    asyncio.run(main())

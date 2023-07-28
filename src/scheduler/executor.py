@@ -3,7 +3,7 @@ import aiohttp
 import json
 import time
 import signal
-import random
+import itertools
 
 import proto.entities.task_pb2 as task_pb
 from manager.task_manager import TaskManager
@@ -16,13 +16,25 @@ from msgq.mq_config import MQConfig
 logger = Logger()
 
 
+class Actor:
+
+    def __init__(self, task, consumer, message):
+        self.task = task
+        self.message = message
+        self.consumer = consumer
+
+    @property
+    def is_finished(self):
+        return self.task.status == task_pb.Task.FINISHED
+
+
 class Executor:
 
     SIGUSR1 = 1 << 0
 
     def __init__(self):
         self.consumers = {}
-        self.load_task_templates_time = 0
+        self.actors = {}
         self.signum = self.SIGUSR1
 
     def signal_handler(self, signum, frame):
@@ -32,7 +44,6 @@ class Executor:
     async def load_task_templates_handler(self):
         if not (self.signum & self.SIGUSR1):
             return
-        self.load_task_templates_time = time.time()
         manager = TaskTemplateManager()
         taskTemplates = manager.list_task_template()
         templateName = SysEnv.get('TEMPLATE_NAME')
@@ -57,6 +68,7 @@ class Executor:
             config.topic = template.id
             config.groupName = f"{template.id}-group"
             config.consumerName = f"{template.id}-consumer-{i}"
+            config.partition = i
             consumer = Consumer().get_consumer(config)
             logger.info(f"Create Consumer {config.topic} {config.groupName} {config.consumerName}")
             consumers.append(consumer)
@@ -64,15 +76,9 @@ class Executor:
         return consumers
 
     async def run(self):
-        await self.load_from_db()
-        await self.run_as_consumer()
+        await self.serve()
 
-    async def load_from_db(self):
-        taskManager = TaskManager()
-        async for task in taskManager.list_created_task():
-            await self.__process_task(task)
-
-    async def run_as_consumer(self):
+    async def serve(self):
         while True:
             await self.load_task_templates_handler()
             for _, consumers in self.consumers.items():
@@ -82,39 +88,61 @@ class Executor:
                 await asyncio.gather(*tasks)
 
     async def __process_per_consumer(self, consumer):
+        async for message in consumer.autoclaim():
+            if not message:
+                continue
+            actor = await self.parse_message(consumer, message)
+            self.actors.update({actor.task.id: actor})
+
         async for message in consumer.pull(10):
+            if not message:
+                continue
             logger.info(f"{consumer.config.consumerName} process start")
             if not message:
                 continue
-            task = await self.parse_message(consumer, message)
-            flag = await self.__process_task(task)
-            if flag:
-                await consumer.ack(message)
-            logger.info(f"{consumer.config.consumerName} process finish")
+            actor = await self.parse_message(consumer, message)
+            if actor.task is None:
+                await actor.consumer.ack(actor.message)
+                continue
+            self.actors.update({actor.task.id: actor})
+        coros = []
+        for _, actor in self.actors.items():
+            if actor.consumer is not consumer:
+                continue
+            coros.append(self.__process_task(actor, self.__task_finish))
+        asyncio.gather(*coros)
 
-    async def __process_task(self, task):
-        if not task:
+    async def __task_finish(self, actor):
+        if actor.is_finished:
+            del self.actors[actor.task.id]
+            await actor.consumer.ack(actor.message)
+        logger.info(f"{actor.consumer.config.consumerName} process finished {actor.is_finished}")
+
+    async def __process_task(self, actor, callback):
+        if not actor:
             return True
         taskManager = TaskManager()
-        flag = await self.check_prepose_status(task)
-        logger.info(f"{task.id} Check task prepose status: {flag}")
+        flag = await self.check_prepose_status(actor.task)
+        logger.info(f"{actor.task.id} Check task prepose status: {flag}")
         if not flag:
             return False
-        result = await self.set_task_finished(task)
+        result = await self.set_task_finished(actor.task)
         if not result:
             return False
-        task.status = task_pb.Task.FINISHED
-        await taskManager.update_task(task)
-        logger.info(f"{task.id} Set task finished: {result}")
+        actor.task.status = task_pb.Task.FINISHED
+        await taskManager.update_task(actor.task)
+        logger.info(f"{actor.task.id} Set task finished: {result}")
+        await callback(actor)
         return True
 
     async def parse_message(self, consumer, message):
         if consumer.config.type == MQConfig.KAFKA:
-            return await self.__parse_message_with_kafka(message)
+            task = await self.__parse_message_with_kafka(message)
         elif consumer.config.type == MQConfig.REDIS:
-            return await self.__parse_message_with_redis(message)
+            task = await self.__parse_message_with_redis(message)
         elif consumer.config.type == MQConfig.PULSAR:
-            return await self.__parse_message_with_pulsar(message)
+            task = await self.__parse_message_with_pulsar(message)
+        return Actor(task, consumer, message)
 
     async def __parse_message_with_redis(self, message):
         message = message.value
