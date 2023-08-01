@@ -2,7 +2,6 @@ import asyncio
 import aiohttp
 import json
 import signal
-import random
 
 import proto.entities.task_pb2 as task_pb
 from manager.task_manager import TaskManager
@@ -201,7 +200,6 @@ class Executor:
             config.partition = i
             coros.append(Consumer().get_consumer(config))
             logger.info(f"Create Consumer {config.topic} {config.groupName} {config.consumerName}")
-
         result = await asyncio.gather(*coros)
         for consumer in result:
             actor = Actor(consumer)
