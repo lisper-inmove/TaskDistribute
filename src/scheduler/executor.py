@@ -1,148 +1,97 @@
 import asyncio
 import aiohttp
 import json
-import time
 import signal
-import itertools
+import random
 
 import proto.entities.task_pb2 as task_pb
 from manager.task_manager import TaskManager
 from manager.task_template_manager import TaskTemplateManager
 from submodules.utils.logger import Logger
 from submodules.utils.sys_env import SysEnv
+from submodules.utils.idate import IDate
 from msgq.consumer import Consumer
 from msgq.mq_config import MQConfig
+from msgq.message import Message
 
 logger = Logger()
 
 
 class Actor:
 
-    def __init__(self, task, consumer, message):
-        self.task = task
-        self.message = message
+    class Task:
+
+        id: str
+        addTime: int
+        finishTime: int
+        message: Message
+
+        def __init__(self, **kargs):
+            self.id = kargs.get("id")
+            self.addTime = kargs.get("addTime")
+            self.finishTime = kargs.get("finishTime")
+            self.message = kargs.get("message")
+
+    def __init__(self, consumer):
         self.consumer = consumer
+        self.tasks = {}
 
-    @property
-    def is_finished(self):
-        return self.task.status == task_pb.Task.FINISHED
+    def info(self, msg):
+        logger.info(f"{self.consumer.config.groupName} -- {self.consumer.config.consumerName} -- {msg}")
 
-
-class Executor:
-
-    SIGUSR1 = 1 << 0
-
-    def __init__(self):
-        self.consumers = {}
-        self.actors = {}
-        self.signum = self.SIGUSR1
-
-    def signal_handler(self, signum, frame):
-        if signum == signal.SIGUSR1:
-            self.signum |= self.SIGUSR1
-
-    async def load_task_templates_handler(self):
-        if not (self.signum & self.SIGUSR1):
-            return
-        manager = TaskTemplateManager()
-        taskTemplates = manager.list_task_template()
-        templateName = SysEnv.get('TEMPLATE_NAME')
-        async for template in taskTemplates:
-            if self.consumers.get(template.id):
-                continue
-            if templateName and template.name != templateName:
-                continue
-            logger.info(f"Load TaskTemplate: {template.id} {template.name}")
-            consumers = await self.__create_consumers(template)
-            self.consumers.update({
-                template.id: consumers
-            })
-        self.signum &= ~self.SIGUSR1
-
-    async def __create_consumers(self, template):
-        consumerRange = SysEnv.get("CONSUMER_RANGE", '0:1')
-        consumerRange = consumerRange.split(':')
-        consumers = []
-        for i in range(int(consumerRange[0]), int(consumerRange[1])):
-            config = MQConfig(SysEnv.get("MQ_TYPE"))
-            config.topic = template.id
-            config.groupName = f"{template.id}-group"
-            config.consumerName = f"{template.id}-consumer-{i}"
-            config.partition = i
-            consumer = Consumer().get_consumer(config)
-            logger.info(f"Create Consumer {config.topic} {config.groupName} {config.consumerName}")
-            consumers.append(consumer)
-        consumers = await asyncio.gather(*consumers)
-        return consumers
-
-    async def run(self):
-        await self.serve()
-
-    async def serve(self):
-        while True:
-            await self.load_task_templates_handler()
-            for _, consumers in self.consumers.items():
-                await asyncio.sleep(0.05)
-                tasks = [self.__process_per_consumer(consumer)
-                         for consumer in consumers]
-                await asyncio.gather(*tasks)
-
-    async def __process_per_consumer(self, consumer):
-        async for message in consumer.autoclaim():
-            if not message:
-                continue
-            actor = await self.parse_message(consumer, message)
-            self.actors.update({actor.task.id: actor})
-
-        async for message in consumer.pull(10):
-            if not message:
-                continue
-            logger.info(f"{consumer.config.consumerName} process start")
-            if not message:
-                continue
-            actor = await self.parse_message(consumer, message)
-            if actor.task is None:
-                await actor.consumer.ack(actor.message)
-                continue
-            self.actors.update({actor.task.id: actor})
+    async def process(self):
         coros = []
-        for _, actor in self.actors.items():
-            if actor.consumer is not consumer:
+        async for message in self.consumer.autoclaim(count=5):
+            if message is None:
                 continue
-            coros.append(self.__process_task(actor, self.__task_finish))
-        asyncio.gather(*coros)
+            coros.append(self.__process_message(message))
+        async for message in self.consumer.pull(5):
+            if message is None:
+                continue
+            coros.append(self.__process_message(message))
+        for _, task in self.tasks.items():
+            coros.append(self.__process_message(task.message))
+        await asyncio.gather(*coros)
 
-    async def __task_finish(self, actor):
-        if actor.is_finished:
-            del self.actors[actor.task.id]
-            await actor.consumer.ack(actor.message)
-        logger.info(f"{actor.consumer.config.consumerName} process finished {actor.is_finished}")
-
-    async def __process_task(self, actor, callback):
-        if not actor:
+    async def __process_message(self, message):
+        if message is None:
+            return
+        task = await self.parse_message(message)
+        if not task:
+            await self.consumer.ack(message)
             return True
+        if task.id not in self.tasks:
+            self.tasks.update({
+                task.id: self.Task(
+                    id=task.id,
+                    addTime=IDate.now_timestamp(),
+                    message=message
+                )
+            })
         taskManager = TaskManager()
-        flag = await self.check_prepose_status(actor.task)
-        logger.info(f"{actor.task.id} Check task prepose status: {flag}")
+        flag = await self.check_prepose_status(task)
+        self.info(f"{task.id} Check task prepose status: {flag}")
         if not flag:
             return False
-        result = await self.set_task_finished(actor.task)
+        result = await self.set_task_finished(task)
         if not result:
             return False
-        actor.task.status = task_pb.Task.FINISHED
-        await taskManager.update_task(actor.task)
-        logger.info(f"{actor.task.id} Set task finished: {result}")
-        await callback(actor)
+        task.status = task_pb.Task.FINISHED
+        await taskManager.update_task(task)
+        self.info(f"{task.id} Set task finished: {result}")
+        await self.consumer.ack(message)
+        if task.id in self.tasks:
+            self.info(f"Remove task from self.tasks {task.id}")
+            del self.tasks[task.id]
         return True
 
-    async def parse_message(self, consumer, message):
-        if consumer.config.type == MQConfig.KAFKA:
-            task = await self.__parse_message_with_kafka(message)
-        elif consumer.config.type == MQConfig.REDIS:
-            task = await self.__parse_message_with_redis(message)
-        elif consumer.config.type == MQConfig.PULSAR:
-            task = await self.__parse_message_with_pulsar(message)
-        return Actor(task, consumer, message)
+    async def parse_message(self, message):
+        if self.consumer.config.type == MQConfig.KAFKA:
+            return await self.__parse_message_with_kafka(message)
+        elif self.consumer.config.type == MQConfig.REDIS:
+            return await self.__parse_message_with_redis(message)
+        elif self.consumer.config.type == MQConfig.PULSAR:
+            return await self.__parse_message_with_pulsar(message)
 
     async def __parse_message_with_redis(self, message):
         message = message.value
@@ -176,10 +125,14 @@ class Executor:
                     timeout=30
                 ) as response:
                     result = await response.json()
-                    logger.info(f"{task.id} Task prepose status: {result.get('code')} {result.get('msg')}")
+                    self.info(f"{task.id} Task prepose status: {result.get('code')} {result.get('msg')}")
                     if result.get("code") == 0 and result.get("msg") == "成功":
                         return True
             except TimeoutError as ex:
+                logger.traceback(ex)
+                return False
+            except Exception as ex:
+                logger.traceback(ex)
                 return False
         return False
 
@@ -196,9 +149,67 @@ class Executor:
                     timeout=30
                 ) as response:
                     result = await response.json()
-                    logger.info(f"{task.id} Set task finish: {result.get('code')} {result.get('msg')}")
+                    self.info(f"{task.id} Set task finish: {result.get('code')} {result.get('msg')}")
                     if result.get("code") == 0 and result.get("msg") == "成功":
                         return True
             except TimeoutError as ex:
+                logger.traceback(ex)
+                return False
+            except Exception as ex:
+                logger.traceback(ex)
                 return False
         return False
+
+
+class Executor:
+
+    SIGUSR1 = 1 << 0
+
+    def __init__(self):
+        self.actors = []
+        self.signum = self.SIGUSR1
+
+    async def run(self):
+        await self.serve()
+
+    def signal_handler(self, signum, frame):
+        if signum == signal.SIGUSR1:
+            self.signum |= self.SIGUSR1
+
+    async def load_task_templates_handler(self):
+        if not (self.signum & self.SIGUSR1):
+            return
+        manager = TaskTemplateManager()
+        taskTemplates = manager.list_task_template()
+        templateName = SysEnv.get('TEMPLATE_NAME')
+        async for template in taskTemplates:
+            if templateName and template.name != templateName:
+                continue
+            logger.info(f"Load TaskTemplate: {template.id} {template.name}")
+            await self.__create_actors(template)
+        self.signum &= ~self.SIGUSR1
+
+    async def __create_actors(self, template):
+        consumerRange = SysEnv.get("CONSUMER_RANGE", '0:1')
+        consumerRange = consumerRange.split(':')
+        coros = []
+        for i in range(int(consumerRange[0]), int(consumerRange[1])):
+            config = MQConfig(SysEnv.get("MQ_TYPE"))
+            config.topic = template.id
+            config.groupName = f"{template.id}-group"
+            config.consumerName = f"{template.id}-consumer-{i}"
+            config.partition = i
+            coros.append(Consumer().get_consumer(config))
+            logger.info(f"Create Consumer {config.topic} {config.groupName} {config.consumerName}")
+
+        result = await asyncio.gather(*coros)
+        for consumer in result:
+            actor = Actor(consumer)
+            self.actors.append(actor)
+
+    async def serve(self):
+        while True:
+            await self.load_task_templates_handler()
+            for actor in self.actors:
+                await asyncio.sleep(0.05)
+                await actor.process()

@@ -12,6 +12,6 @@ class Watcher:
     async def start(self):
         while True:
             await asyncio.sleep(1)
-            logger.info(f"Watcher {len(self.executor.actors)} tasks")
-            for _, actor in self.executor.actors.items():
-                print(actor.task)
+            for actor in self.executor.actors:
+                for _, task in actor.tasks.items():
+                    logger.info(f"{task.id} {task.addTime} {task.finishTime}")
