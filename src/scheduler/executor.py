@@ -87,7 +87,10 @@ class Actor:
     async def parse_message(self, message):
         if self.consumer.config.type == MQConfig.KAFKA:
             return await self.__parse_message_with_kafka(message)
-        elif self.consumer.config.type == MQConfig.REDIS:
+        elif self.consumer.config.type in [
+                MQConfig.REDIS,
+                MQConfig.REDIS_CLUSTER,
+        ]:
             return await self.__parse_message_with_redis(message)
         elif self.consumer.config.type == MQConfig.PULSAR:
             return await self.__parse_message_with_pulsar(message)
