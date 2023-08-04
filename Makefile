@@ -40,3 +40,5 @@ test-pulsar:
 
 test-produce:
 	python src/test/produce.py
+test-lock:
+	source bin/util.sh && python src/test/redis_lock.py
