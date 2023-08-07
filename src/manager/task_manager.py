@@ -14,7 +14,8 @@ class TaskManager(BaseManager):
     def create_task(self, request, template):
         obj = self.create_obj(task_pb.Task)
         obj.uniqueId = request.uniqueId
-        obj.params = request.params
+        obj.preposeParams = request.preposeParams
+        obj.finishParams = request.finishParams
         obj.template.CopyFrom(template)
         return obj
 

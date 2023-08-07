@@ -142,7 +142,7 @@ class Actor:
         if not task:
             return True
         api = task.template.preposeStatusQueryApi
-        params = json.loads(task.params)
+        params = json.loads(task.preposeParams)
         async with aiohttp.ClientSession() as session:
             try:
                 async with session.post(
@@ -166,7 +166,7 @@ class Actor:
         if not task:
             return True
         api = task.template.taskFinishSetApi
-        params = json.loads(task.params)
+        params = json.loads(task.finishParams)
         async with aiohttp.ClientSession() as session:
             try:
                 async with session.post(
