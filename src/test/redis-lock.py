@@ -3,12 +3,12 @@ import asyncio
 from asyncio import gather
 from multiprocessing import Process
 
-from submodules.utils.redis_lock import redislock
+from submodules.utils.redis_lock import Redislock
 
 
 async def Produce(name):
     print(f"{name} 尝试去获取锁")
-    with redislock("my-test-lock", ttl=30, retryCount=10, retryDelay=0.2) as lock:
+    async with Redislock("my-test-lock", ttl=30, retryCount=10, retryDelay=0.2) as lock:
         if not lock:
             print(f"{name} 未获取到锁")
             return
@@ -16,13 +16,14 @@ async def Produce(name):
         print(f"{name} 获取到锁,但是什么也不做")
 
 
-def main():
-    asyncio.run(Produce(random.randint(1, 1000)))
+async def main():
+    coros = []
+    for i in range(0, 2):
+        coros.append(Produce(i))
+    asyncio.gather(
+        *coros
+    )
 
 
 if __name__ == "__main__":
-    processes = [Process(target=main) for _ in range(10)]
-    for p in processes:
-        p.start()
-    for p in processes:
-        p.join()
+    asyncio.run(main())

@@ -19,7 +19,7 @@ async def send_post(session, i):
 async def Produce():
     tasks = []
     async with aiohttp.ClientSession() as session:
-        for i in range(0, 500):
+        for i in range(0, 10):
             tasks.append(send_post(session, i))
         await asyncio.gather(*tasks)
 

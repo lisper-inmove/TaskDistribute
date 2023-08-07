@@ -9,6 +9,7 @@ from manager.task_template_manager import TaskTemplateManager
 from submodules.utils.logger import Logger
 from submodules.utils.sys_env import SysEnv
 from submodules.utils.idate import IDate
+from submodules.utils.redis_lock import Redislock
 from msgq.consumer import Consumer
 from msgq.mq_config import MQConfig
 from msgq.message import Message
@@ -59,6 +60,12 @@ class Actor:
         if not task:
             await self.consumer.ack(message)
             return True
+        async with Redislock(task.id) as lock:
+            if not lock:
+                return
+            await self.__process_message_without_lock(task, message)
+
+    async def __process_message_without_lock(self, task, message):
         if task.id not in self.tasks:
             self.tasks.update({
                 task.id: self.Task(
