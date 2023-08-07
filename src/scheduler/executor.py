@@ -31,6 +31,18 @@ class Actor:
             self.addTime = kargs.get("addTime")
             self.finishTime = kargs.get("finishTime")
             self.message = kargs.get("message")
+            self.isFinished = False
+
+        @property
+        def finished(self):
+            return self.isFinished
+
+        @finished.setter
+        def finished(self, isFinished):
+            if not isFinished:
+                return
+            self.isFinished = isFinished
+            self.finishTime = IDate.now_timestamp()
 
     def __init__(self, consumer):
         self.consumer = consumer
@@ -63,18 +75,30 @@ class Actor:
         async with Redislock(task.id) as lock:
             if not lock:
                 return
-            await self.__process_message_without_lock(task, message)
+            if task.id not in self.tasks:
+                self.tasks.update({
+                    task.id: self.Task(
+                        id=task.id,
+                        addTime=IDate.now_timestamp(),
+                        message=message
+                    )
+                })
+            task.finished = await self.__process_message_without_lock(task)
+            await self.__process_message_finish(task)
 
-    async def __process_message_without_lock(self, task, message):
-        if task.id not in self.tasks:
-            self.tasks.update({
-                task.id: self.Task(
-                    id=task.id,
-                    addTime=IDate.now_timestamp(),
-                    message=message
-                )
-            })
+    async def __process_message_finish(self, task):
+        if not task.finished:
+            return
         taskManager = TaskManager()
+        task.status = task_pb.Task.FINISHED
+        await taskManager.update_task(task)
+        self.info(f"{task.id} Set task finished: {task.finished}")
+        await self.consumer.ack(task.message)
+        if task.id in self.tasks:
+            self.info(f"Remove task from self.tasks {task.id}")
+            del self.tasks[task.id]
+
+    async def __process_message_without_lock(self, task):
         flag = await self.check_prepose_status(task)
         self.info(f"{task.id} Check task prepose status: {flag}")
         if not flag:
@@ -82,13 +106,6 @@ class Actor:
         result = await self.set_task_finished(task)
         if not result:
             return False
-        task.status = task_pb.Task.FINISHED
-        await taskManager.update_task(task)
-        self.info(f"{task.id} Set task finished: {result}")
-        await self.consumer.ack(message)
-        if task.id in self.tasks:
-            self.info(f"Remove task from self.tasks {task.id}")
-            del self.tasks[task.id]
         return True
 
     async def parse_message(self, message):
