@@ -1,0 +1,126 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: task-distribute
+  namespace: test
+  labels:
+    name: task-distribute
+    version: v1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: task-distribute
+      version: v1.0
+  template:
+    metadata:
+      labels:
+        name: task-distribute
+        version: v1.0
+    spec:
+      containers:
+      - name: task-distribute
+        image: mh.com:8890/test/task-distribute:v1.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+        env:
+        - name: MQ_TYPE
+          value: 'REDIS_CLUSTER'
+        - name: MONGODB_CLUSTER_NODES
+          valueFrom:
+            configMapKeyRef:
+              name: mongodb
+              key: address
+        - name: MONGODB_CLUSTER_AUTH_DB
+          valueFrom:
+            configMapKeyRef:
+              name: mongodb
+              key: auth_db
+        - name: MONGODB_CLUSTER_USER
+          valueFrom:
+            configMapKeyRef:
+              name: mongodb
+              key: username
+        - name: MONGODB_CLUSTER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-secret
+              key: password
+        - name: MONGODB_CLUSTER_REPLICA_SET
+          valueFrom:
+            configMapKeyRef:
+              name: mongodb
+              key: replica_set
+        - name: R_ENABLE_REPLICA
+          valueFrom:
+            configMapKeyRef:
+              name: mongodb
+              key: enable_replica
+
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: redis-cluster
+              key: host
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: redis-cluster
+              key: port
+        - name: REDIS_STARTUP_NODES
+          valueFrom:
+            configMapKeyRef:
+              name: redis-cluster
+              key: redis_startup_nodes
+        - name: REDIS_CLUSTER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-cluster-secret
+              key: password
+
+        - name: REDIS_LOCK_CONFIG
+          valueFrom:
+            configMapKeyRef:
+              name: redis-lock
+              key: redis_lock_config
+        - name: REDIS_LOCK_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-lock-secret
+              key: password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: task-distribute
+  namespace: test
+spec:
+  ports:
+  - port: 8000
+    protocol: TCP
+    targetPort: 8000
+  selector:
+    name: task-distribute
+    version: v1.0
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: task-distribute-ing
+  namespace: test
+    # annotations:
+    #   nginx.ingress.kubernetes.io/rewrite-target: "/$1"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: task-distribute.api
+      http:
+        paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: task-distribute
+              port:
+                number: 8000

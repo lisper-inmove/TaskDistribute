@@ -5,7 +5,6 @@ import importlib.util
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from pathlib import Path
 
 from submodules.utils.logger import Logger
 from submodules.utils.sys_env import SysEnv
@@ -39,12 +38,12 @@ class RouterHelper:
         """加载某一个router."""
         if not filepath.endswith("py"):
             return
-        filename = Path(filepath).name
         spec = importlib.util.spec_from_file_location(self.directory, filepath)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         if module.__dict__.get('router'):
             self.app.include_router(module.__dict__.get('router'))
+            logger.info(f"load router: {module.__dict__.get('router')}")
 
 
 app = FastAPI()

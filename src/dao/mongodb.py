@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import base64
 from motor.motor_asyncio import AsyncIOMotorClient as MongoClient
 
 from submodules.utils.singleton import SingletonMetaThreadSafe as SingletonMetaclass
@@ -14,17 +15,19 @@ class MongoDBReplicaHelper(metaclass=SingletonMetaclass):
 
     def __init__(self):
         super().__init__()
-        host = SysEnv.get("R_MONGODB_SERVER_ADDRESS")
-        port = int(SysEnv.get("R_MONGODB_PORT"))
-        username = SysEnv.get("R_MONGODB_USER_NAME")
-        password = SysEnv.get("R_MONGODB_ROOT_PASSWORD")
-        replica_set = SysEnv.get("R_MONGODB_REPLICA_SET")
+        host = SysEnv.get("MONGODB_CLUSTER_NODES")
+        auth_db = SysEnv.get("MONGODB_CLUSTER_AUTH_DB")
+        username = SysEnv.get("MONGODB_CLUSTER_USER")
+        password = SysEnv.get("MONGODB_CLUSTER_PASSWORD")
+        replica_set = SysEnv.get("MONGODB_CLUSTER_REPLICA_SET")
         min_pool_size = int(SysEnv.get("R_MONGODB_MIN_POOL_SIZE", 512))
         max_pool_size = int(SysEnv.get("R_MONGODB_MAX_POOL_SIZE", 8192))
         replica_set_number = int(SysEnv.get("R_MONGODB_REPLICA_SET_NUMBER", 3))
+        connection_string = f"mongodb://{username}:{password}@{host}/{auth_db}?replicaSet={replica_set}"
+        logger.info(connection_string)
         self.mongo_client = MongoClient(
-            host=host, port=port, username=username, replicaSet=replica_set,
-            password=password, minPoolSize=min_pool_size, maxPoolSize=max_pool_size,
+            connection_string,
+            minPoolSize=min_pool_size, maxPoolSize=max_pool_size,
             w=replica_set_number, readPreference="secondaryPreferred")
         coll = self.coll.split("___")
         self._coll = self.mongo_client[coll[1]][coll[2]]

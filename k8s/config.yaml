@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongodb
+  namespace: test
+data:
+  address: 'mongodb-replicaset-0.mongodb-replicaset-headless.mongodb.svc.cluster.local:27017,mongodb-replicaset-1.mongodb-replicaset-headless.mongodb.svc.cluster.local:27017,mongodb-replicaset-2.mongodb-replicaset-headless.mongodb.svc.cluster.local:27017'
+  replica_set: 'rs0'
+  enable_replica: 'true'
+  username: 'root'
+  auth_db: 'admin'
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-cluster
+  namespace: test
+data:
+  redis_startup_nodes: 'redis-redis-cluster-0.redis-redis-cluster-headless.redis.svc.cluster.local,6379:redis-redis-cluster-1.redis-redis-cluster-headless.redis.svc.cluster.local,6379:redis-redis-cluster-2.redis-redis-cluster-headless.redis.svc.cluster.local,6379:redis-redis-cluster-3.redis-redis-cluster-headless.redis.svc.cluster.local,6379:redis-redis-cluster-4.redis-redis-cluster-headless.redis.svc.cluster.local,6379:redis-redis-cluster-5.redis-redis-cluster-headless.redis.svc.cluster.local,6379'
+  host: 'redis-redis-cluster-0.redis-redis-cluster-headless.redis.svc.cluster.local'
+  port: '6379'
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-lock
+  namespace: test
+data:
+  redis_lock_config: redis-standlone-master.redis.svc.cluster.local,6379
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logger
+  namespace: test
+data:
+  logger_category: 'INFO,DEBUG'
+  enable_console: 'true'
+  enable_syslog: 'true'
+  syslog_port: '514'
+  syslog_file: 'local7'
+  enable_file: 'false'
+  file_directory: '/logs/'

@@ -42,3 +42,13 @@ test-produce:
 	python src/test/produce.py
 test-lock:
 	source bin/util.sh && python src/test/redis-lock.py
+
+build:
+	sudo docker build . -t mh.com:8890/test/task-distribute:v1.0
+	sudo docker push mh.com:8890/test/task-distribute:v1.0
+restart:
+	kubectl delete -f k8s/deployment.yaml
+	kubectl apply -f k8s/deployment.yaml
+
+clean:
+	sudo docker rmi $(sudo docker images --filter "dangling=true" -q )
