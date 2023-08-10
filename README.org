@@ -13,3 +13,7 @@ b). 任务已成功回调，要求幂等
 #+begin_src shell
   conda activate TaskDistribute
 #+end_src
+* K8S Secret
+#+begin_src shell
+  echo -n 密码 | base64
+#+end_src
