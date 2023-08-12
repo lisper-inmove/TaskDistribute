@@ -14,5 +14,5 @@ class Watcher:
         while True:
             await asyncio.sleep(1)
             for actor in self.executor.actors:
-                for _, task in actor.tasks.items():
-                    logger.info(f"{task.id} {task.addTime} {IDate.now_timestamp() - task.addTime}")
+                for _, job in actor.jobs.items():
+                    logger.info(f"{job.id} {job.addTime} {IDate.now_timestamp() - job.addTime}")

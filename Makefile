@@ -49,6 +49,9 @@ build:
 restart:
 	kubectl delete -f k8s/deployment.yaml
 	kubectl apply -f k8s/deployment.yaml
+restart-consumer:
+	kubectl delete -f k8s/consumer.yaml
+	kubectl apply -f k8s/consumer.yaml
 
 clean:
 	sudo docker rmi $(sudo docker images --filter "dangling=true" -q )

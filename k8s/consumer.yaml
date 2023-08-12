@@ -1,31 +1,23 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
-  name: task-distribute
+  name: task-distribute-consumer
   namespace: test
-  labels:
-    name: task-distribute
-    version: v1.0
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      name: task-distribute
-      version: v1.0
   template:
-    metadata:
-      labels:
-        name: task-distribute
-        version: v1.0
     spec:
       containers:
-      - name: task-distribute
+      - name: consumer
         image: mh.com:8890/test/task-distribute:v1.0
-        ports:
-        - containerPort: 8000
+        imagePullPolicy: Always
+        command: ["python"]
+        args:
+        - "src/scheduler/main.py"
         env:
         - name: MQ_TYPE
           value: 'REDIS_CLUSTER'
+        - name: CONSUMER_RANGE
+          value: '1:10'
         - name: MONGODB_CLUSTER_NODES
           valueFrom:
             configMapKeyRef:
@@ -88,38 +80,5 @@ spec:
             secretKeyRef:
               name: redis-lock-secret
               key: password
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: task-distribute
-  namespace: test
-spec:
-  ports:
-  - port: 8000
-    protocol: TCP
-    targetPort: 8000
-  selector:
-    name: task-distribute
-    version: v1.0
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: task-distribute-ing
-  namespace: test
-    # annotations:
-    #   nginx.ingress.kubernetes.io/rewrite-target: "/$1"
-spec:
-  ingressClassName: nginx
-  rules:
-    - host: task-distribute.api
-      http:
-        paths:
-        - path: /
-          pathType: Prefix
-          backend:
-            service:
-              name: task-distribute
-              port:
-                number: 8000
+      restartPolicy: Never
+  backoffLimit: 4

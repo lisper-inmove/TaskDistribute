@@ -19,19 +19,17 @@ logger = Logger()
 
 class Actor:
 
-    class Task:
+    class Job:
 
-        id: str
-        addTime: int
-        finishTime: int
-        message: Message
-
-        def __init__(self, **kargs):
-            self.id = kargs.get("id")
-            self.addTime = kargs.get("addTime")
-            self.finishTime = kargs.get("finishTime")
-            self.message = kargs.get("message")
+        def __init__(self, task: task_pb.Task, message: Message):
+            self.task = task
+            self.message = message
+            self.addTime = IDate.now_timestamp()
             self.isFinished = False
+
+        @property
+        def id(self):
+            return self.task.id
 
         @property
         def finished(self):
@@ -46,7 +44,7 @@ class Actor:
 
     def __init__(self, consumer):
         self.consumer = consumer
-        self.tasks = {}
+        self.jobs = {}
 
     def info(self, msg):
         logger.info(f"{self.consumer.config.groupName} -- {self.consumer.config.consumerName} -- {msg}")
@@ -61,63 +59,56 @@ class Actor:
             if message is None:
                 continue
             coros.append(self.__process_message(message))
-        for _, task in self.tasks.items():
+        for _, task in self.jobs.items():
             coros.append(self.__process_message(task.message))
         await asyncio.gather(*coros)
 
     async def __process_message(self, message):
         if message is None:
             return
-        task = await self.parse_message(message)
-        if not task:
+        job = await self.parse_message(message)
+        if not job:
             await self.consumer.ack(message)
             return True
-        async with Redislock(task.id) as lock:
+        async with Redislock(job.id) as lock:
             if not lock:
                 return
-            if task.id not in self.tasks:
-                self.tasks.update({
-                    task.id: self.Task(
-                        id=task.id,
-                        addTime=IDate.now_timestamp(),
-                        message=message
-                    )
-                })
-            task.finished = await self.__process_message_without_lock(task)
-            await self.__process_message_finish(task)
+            job.finished = await self.__process_message_without_lock(job)
+            await self.__process_message_finish(job)
 
-    async def __process_message_finish(self, task):
-        if not task.finished:
+    async def __process_message_finish(self, job):
+        if not job.finished:
             return
         taskManager = TaskManager()
-        task.status = task_pb.Task.FINISHED
-        await taskManager.update_task(task)
-        self.info(f"{task.id} Set task finished: {task.finished}")
-        await self.consumer.ack(task.message)
-        if task.id in self.tasks:
-            self.info(f"Remove task from self.tasks {task.id}")
-            del self.tasks[task.id]
+        job.task.status = task_pb.Task.FINISHED
+        await taskManager.update_task(job.task)
+        self.info(f"{job.id} Set task finished: {job.finished}")
+        await self.consumer.ack(job.message)
+        if job.id in self.jobs:
+            self.info(f"Remove task from self.jobs {job.id}")
+            del self.jobs[job.id]
 
-    async def __process_message_without_lock(self, task):
-        flag = await self.check_prepose_status(task)
-        self.info(f"{task.id} Check task prepose status: {flag}")
+    async def __process_message_without_lock(self, job):
+        flag = await self.check_prepose_status(job)
+        self.info(f"{job.id} Check task prepose status: {flag}")
         if not flag:
             return False
-        result = await self.set_task_finished(task)
+        result = await self.set_task_finished(job)
         if not result:
             return False
         return True
 
     async def parse_message(self, message):
         if self.consumer.config.type == MQConfig.KAFKA:
-            return await self.__parse_message_with_kafka(message)
+            task = await self.__parse_message_with_kafka(message)
         elif self.consumer.config.type in [
                 MQConfig.REDIS,
                 MQConfig.REDIS_CLUSTER,
         ]:
-            return await self.__parse_message_with_redis(message)
+            task = await self.__parse_message_with_redis(message)
         elif self.consumer.config.type == MQConfig.PULSAR:
-            return await self.__parse_message_with_pulsar(message)
+            task = await self.__parse_message_with_pulsar(message)
+        return self.Job(task, message)
 
     async def __parse_message_with_redis(self, message):
         message = message.value
@@ -138,9 +129,10 @@ class Actor:
         manager = TaskManager()
         return await manager.get_task_by_id(message.get("id"))
 
-    async def check_prepose_status(self, task):
-        if not task:
+    async def check_prepose_status(self, job):
+        if not job:
             return True
+        task = job.task
         api = task.template.preposeStatusQueryApi
         params = json.loads(task.preposeParams)
         async with aiohttp.ClientSession() as session:
@@ -150,6 +142,7 @@ class Actor:
                     json=params,
                     timeout=30
                 ) as response:
+                    self.info(f">>>>>>>>>> {task.id} {api} {params}")
                     result = await response.json()
                     self.info(f"{task.id} Task prepose status: {result.get('code')} {result.get('msg')}")
                     if result.get("code") == 0 and result.get("msg") == "成功":
@@ -162,9 +155,10 @@ class Actor:
                 return False
         return False
 
-    async def set_task_finished(self, task):
-        if not task:
+    async def set_task_finished(self, job):
+        if not job:
             return True
+        task = job.task
         api = task.template.taskFinishSetApi
         params = json.loads(task.finishParams)
         async with aiohttp.ClientSession() as session:
