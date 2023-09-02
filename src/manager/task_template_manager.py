@@ -31,3 +31,6 @@ class TaskTemplateManager(BaseManager):
     async def update_task_template(self, template):
         self.update_obj(template)
         await self.dao.update_task_template(template)
+
+    async def delete_task_template(self, id):
+        return await self.dao.delete_template_by_id(id)

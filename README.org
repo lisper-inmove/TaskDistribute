@@ -7,8 +7,17 @@ a). 任务状态查询
 b). 任务已成功回调，要求幂等
 如: 用户支付完成之后，向任务管理器下发任务。任务管理器则需要轮询a接口去查询是否已完成。当已完成(包括成功/失败)，再调用b接口
 #+end_verse
-* 任务分配
-11
+* Api
+** 创建任务模板
+/task-template/create
+** 删除任务模板
+/task-template/delete
+** 列出任务模板
+/task-template/list
+** 创建任务
+/task/create
+** 查看任务列表
+/task/list
 * 激活env
 #+begin_src shell
   conda activate TaskDistribute

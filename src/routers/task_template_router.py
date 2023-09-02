@@ -1,9 +1,8 @@
 from fastapi import APIRouter
 
 import proto.api.api_task_p2p as api_task_pb
-from manager.task_template_manager import TaskTemplateManager
-from errors import PopupError
 from unify_response import UnifyResponse
+from manager.task_template_manager import TaskTemplateManager
 
 
 router = APIRouter(prefix="/task-template")
@@ -24,7 +23,9 @@ async def create_task_template(
 
 @router.post("/delete")
 async def delete_task_template(template: api_task_pb.DeleteTaskTemplateRequest):
-    return template
+    manager = TaskTemplateManager();
+    template = await manager.delete_task_template(template.id)
+    return UnifyResponse.R()
 
 
 @router.post("/list")
