@@ -19,11 +19,15 @@ export MONGODB_PORT=27018
 export MONGODB_CLUSTER_NODES=localhost:37017,localhost:37018,localhost:37019
 export MONGODB_CLUSTER_AUTH_DB=admin
 export MONGODB_CLUSTER_USER=root
-export MONGODB_CLUSTER_PASSWORD=dba8ef157eb78ec07cb9a70fcf48145c
 export MONGODB_CLUSTER_REPLICA_SET=myrs
 # export R_ENABLE_REPLICA=true
 # 服务启动环境
 export RUNTIME_ENVIRONMENT=test
+
+# APITABLE服务
+export TOKEN=uskHYI63inkUx3wqOMcnb1A
+export APITABLE_HOST=http://127.0.0.1
+export APITABLE_PORT=8800
 
 export MQ_TYPE=KAFKA
 export REDIS_HOST=127.0.0.1

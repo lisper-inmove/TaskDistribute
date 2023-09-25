@@ -16,6 +16,9 @@ class TaskTemplateManager(BaseManager):
         obj.name = request.name
         obj.preposeStatusQueryApi = request.preposeStatusQueryApi
         obj.taskFinishSetApi = request.taskFinishSetApi
+        obj.tokenName = request.tokenName
+        obj.tokenValue = request.tokenValue
+        obj.successAssert = request.successAssert
         return obj
 
     async def get_task_template_by_id(self, id):

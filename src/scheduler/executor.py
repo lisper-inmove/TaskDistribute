@@ -142,9 +142,11 @@ class Actor:
                     json=params,
                     timeout=30
                 ) as response:
-                    self.info(f">>>>>>>>>> {task.id} {api} {params}")
                     result = await response.json()
                     self.info(f"{task.id} Task prepose status: {result.get('code')} {result.get('msg')}")
+                    successAssert = self.success_assert(result, task)
+                    if successAssert is not None:
+                        return successAssert
                     if result.get("code") == 0 and result.get("msg") == "成功":
                         return True
             except TimeoutError as ex:
@@ -170,6 +172,9 @@ class Actor:
                 ) as response:
                     result = await response.json()
                     self.info(f"{task.id} Set task finish: {result.get('code')} {result.get('msg')}")
+                    successAssert = self.success_assert(result, task)
+                    if successAssert is not None:
+                        return successAssert
                     if result.get("code") == 0 and result.get("msg") == "成功":
                         return True
             except TimeoutError as ex:
@@ -179,6 +184,15 @@ class Actor:
                 logger.traceback(ex)
                 return False
         return False
+
+    def success_assert(self, result, task):
+        if task.template.successAssert == "":
+            return None
+        successAssert = json.loads(task.template.successAssert)
+        for key, value in successAssert.items():
+            if task.get(key) != value:
+                return False
+        return True
 
 
 class Executor:

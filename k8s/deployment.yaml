@@ -103,39 +103,21 @@ spec:
     name: task-distribute
     version: v1.0
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  name: task-distribute-2
-spec:
-  selector:
-    name: task-distribute
-    version: v1.0
-  ports:
-    - protocol: TCP
-      port: 32081
-      targetPort: 8080
-  type: LoadBalancer
-  externalIPs:
-    - 192.168.3.124
----
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: task-distribute-ing
   namespace: test
-    # annotations:
-    #   nginx.ingress.kubernetes.io/rewrite-target: "/$1"
 spec:
-  ingressClassName: nginx
+  ingressClassName: kong
   rules:
-    - host: task-distribute.api
+    - host: task.inmove.top
       http:
         paths:
-        - path: /
-          pathType: Prefix
-          backend:
-            service:
-              name: task-distribute
-              port:
-                number: 8000
+          - pathType: Prefix
+            backend:
+              service:
+                name: task-distribute
+                port:
+                  number: 8000
+            path: /
